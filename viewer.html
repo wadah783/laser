@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>اختيار باحث وعمود</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 20px;
+            background-color: #f9f9f9;
+        }
+        .toolbar {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        select, input {
+            padding: 8px;
+            font-size: 16px;
+        }
+        .suggestions, .column-suggestions {
+            border: 1px solid #ccc;
+            max-height: 150px;
+            overflow-y: auto;
+            background: white;
+            position: absolute;
+            z-index: 1000;
+            width: 200px;
+        }
+        .suggestion {
+            padding: 8px;
+            cursor: pointer;
+        }
+        .suggestion:hover, .suggestion.active {
+            background-color: #0078D7;
+            color: white;
+        }
+        .input-group {
+            position: relative;
+        }
+    </style>
+</head>
+<body>
+    <div class="toolbar">
+        <div>
+            <label for="fileSelect">ملف:</label>
+            <select id="fileSelect">
+                <option value="">اختر ملف</option>
+                <option value="file1.csv">ملف 1</option>
+                <option value="file2.csv">ملف 2</option>
+            </select>
+        </div>
+        <div class="input-group">
+            <label for="searchInput">بحث:</label>
+            <input type="text" id="searchInput" placeholder="اكتب اسم الباحث..." autocomplete="off">
+            <div id="suggestions" class="suggestions" style="display:none;"></div>
+        </div>
+        <div class="input-group">
+            <label for="columnSelect">العمود:</label>
+            <input type="text" id="columnSelect" placeholder="اختر عمود..." autocomplete="off" disabled>
+            <div id="columnSuggestions" class="column-suggestions" style="display:none;"></div>
+        </div>
+    </div>
+
+    <script>
+        const researchers = [
+            "أحمد علي", "سارة محمد", "يوسف حسن", "فاطمة خالد",
+            "محمد أحمد", "خالد عبد الله", "ليلى سمير", "زينب كاظم"
+        ];
+
+        const columns = [
+            "الاسم", "الشهادة", "المنصب", "الاشراف", "باحث رئيسي",
+            "باحث مشارك", "بحوث منشورة", "براءة الاختراع", "كتب شكر", "النشاط العام"
+        ];
+
+        const searchInput = document.getElementById('searchInput');
+        const suggestionsBox = document.getElementById('suggestions');
+        const columnInput = document.getElementById('columnSelect');
+        const columnBox = document.getElementById('columnSuggestions');
+
+        function showSuggestions(input, list, box, callback) {
+            const val = input.value.toLowerCase();
+            const matches = list.filter(item => item.toLowerCase().includes(val));
+            box.innerHTML = '';
+            if (matches.length === 0) {
+                box.style.display = 'none';
+                return;
+            }
+            matches.forEach((item, index) => {
+                const div = document.createElement('div');
+                div.classList.add('suggestion');
+                div.textContent = item;
+                div.addEventListener('click', () => {
+                    input.value = item;
+                    box.style.display = 'none';
+                    callback(item);
+                });
+                box.appendChild(div);
+            });
+            box.style.display = 'block';
+        }
+
+        searchInput.addEventListener('input', () => {
+            showSuggestions(searchInput, researchers, suggestionsBox, () => {
+                columnInput.disabled = false;
+            });
+        });
+
+        searchInput.addEventListener('keydown', handleKeyNavigation(suggestionsBox, searchInput, () => {
+            columnInput.disabled = false;
+        }));
+
+        columnInput.addEventListener('input', () => {
+            showSuggestions(columnInput, columns, columnBox, () => {});
+        });
+
+        columnInput.addEventListener('keydown', handleKeyNavigation(columnBox, columnInput, () => {}));
+
+        function handleKeyNavigation(box, input, callback) {
+            return function (e) {
+                const active = box.querySelector('.suggestion.active');
+                let next;
+                if (e.key === 'ArrowDown') {
+                    if (active) {
+                        next = active.nextElementSibling || box.firstChild;
+                    } else {
+                        next = box.firstChild;
+                    }
+                    if (next) {
+                        if (active) active.classList.remove('active');
+                        next.classList.add('active');
+                    }
+                    e.preventDefault();
+                } else if (e.key === 'ArrowUp') {
+                    if (active) {
+                        next = active.previousElementSibling || box.lastChild;
+                    } else {
+                        next = box.lastChild;
+                    }
+                    if (next) {
+                        if (active) active.classList.remove('active');
+                        next.classList.add('active');
+                    }
+                    e.preventDefault();
+                } else if (e.key === 'Enter') {
+                    if (active) {
+                        input.value = active.textContent;
+                        box.style.display = 'none';
+                        callback(active.textContent);
+                    }
+                    e.preventDefault();
+                }
+            };
+        }
+    </script>
+</body>
+</html>
