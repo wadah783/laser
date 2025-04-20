@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <title>عرض ملف الباحثين</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      direction: rtl;
+      padding: 0;
+      margin: 0;
+    }
+
+    .topbar {
+      background-color: #333;
+      color: white;
+      padding: 10px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .menu {
+      position: relative;
+      display: inline-block;
+      margin-left: 10px;
+    }
+
+    .menu button {
+      background-color: #333;
+      color: white;
+      border: none;
+      padding: 10px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    .dropdown {
+      display: none;
+      position: absolute;
+      top: 100%;
+      background-color: #fff;
+      color: black;
+      min-width: 250px;
+      box-shadow: 0px 8px 16px rgba(0,0,0,0.2);
+      z-index: 1;
+      text-align: right;
+      padding: 10px;
+    }
+
+    .dropdown input, .dropdown button, .dropdown datalist {
+      width: 100%;
+      margin-bottom: 5px;
+      box-sizing: border-box;
+    }
+
+    .dropdown button {
+      padding: 6px;
+      background-color: #f0f0f0;
+      color: #333;
+      border: 1px solid #ccc;
+    }
+
+    .menu:hover .dropdown {
+      display: block;
+    }
+
+    #notice {
+      font-size: 18px;
+      margin: 20px;
+      color: green;
+    }
+
+    .scrollable-table {
+      overflow: auto;
+      max-height: 500px;
+      border: 1px solid #ccc;
+      margin: 20px;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      min-width: 1200px;
+    }
+
+    th, td {
+      border: 1px solid #999;
+      padding: 8px;
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    th {
+      background-color: #f2f2f2;
+    }
+
+    .popup {
+      display: none;
+      position: fixed;
+      z-index: 999;
+      left: 50%;
+      top: 45%;
+      transform: translate(-50%, -50%);
+      background-color: #fff;
+      border: 2px solid #333;
+      padding: 20px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+      min-width: 300px;
+      max-width: 90%;
+      text-align: right;
+      max-height: 70%;
+      overflow-y: auto;
+      resize: both;
+      cursor: move;
+    }
+
+    .popup button {
+      margin-top: 10px;
+    }
+
+    .overlay {
+      display: none;
+      position: fixed;
+      z-index: 998;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+    }
+
+    .link {
+      color: blue;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div>
+      <div class="menu">
+        <button>📁 ملف</button>
+        <div class="dropdown">
+          <button onclick="downloadCSV()">⬇️ تحميل الملف</button>
+          <button onclick="downloadPopupContent()">💾 حفظ البيانات</button>
+          <button onclick="logout()">🚪 خروج</button>
+        </div>
+      </div>
+      <div class="menu">
+        <button>🔍 بحث</button>
+        <div class="dropdown">
+          <input type="text" id="searchName" list="nameList" placeholder="اختر اسم الباحث">
+          <datalist id="nameList"></datalist>
+          <input type="text" id="columnName" list="columnList" placeholder="اختر اسم العمود">
+          <datalist id="columnList"></datalist>
+          <button onclick="searchColumnValue()">🔎 بحث في العمود</button>
+          <button onclick="searchAndShowData()">📌 بحث عن الباحث</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="notice">✅ تم تسجيل الدخول بنجاح. يمكنك الآن عرض الملف.</div>
+
+  <div class="scrollable-table">
+    <table id="csvTable">
+      <thead></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div class="overlay" id="overlay"></div>
+  <div class="popup" id="popup">
+    <div id="popupMessage"></div>
+    <button onclick="downloadPopupContent()">📄 تحميل البيانات</button>
+    <button onclick="closePopup()">❌ إغلاق</button>
+  </div>
+
+  <script>
+    if (sessionStorage.getItem("loggedIn") !== "true") {
+      alert("يرجى تسجيل الدخول أولاً.");
+      window.location.href = "login.html";
+    }
+
+    const FILE_NAME = "researchers.csv";
+
+    fetch(FILE_NAME)
+      .then(response => response.text())
+      .then(data => {
+        const lines = data.trim().split("\n");
+        const headers = lines[0].split(",");
+        const thead = document.querySelector("#csvTable thead");
+        const tbody = document.querySelector("#csvTable tbody");
+
+        const headerRow = document.createElement("tr");
+        headers.forEach(h => {
+          const th = document.createElement("th");
+          th.textContent = h;
+          headerRow.appendChild(th);
+
+          const colOption = document.createElement("option");
+          colOption.value = h;
+          document.getElementById("columnList").appendChild(colOption);
+        });
+        thead.appendChild(headerRow);
+
+        const nameSet = new Set();
+        for (let i = 1; i < lines.length; i++) {
+          const row = document.createElement("tr");
+          const cells = lines[i].split(",");
+          cells.forEach(cell => {
+            const td = document.createElement("td");
+            const text = cell.trim();
+            if (text.match(/(https?:\/\/[^"]+|\b[\w.-]+\.(com|org|net|edu|gov)\b)/i)) {
+              let url = text;
+              if (!/^https?:\/\//i.test(url)) url = "https://" + url;
+              td.innerHTML = `<a href="${url}" target="_blank" class="link">${text}</a>`;
+            } else {
+              td.textContent = text;
+            }
+            row.appendChild(td);
+          });
+          tbody.appendChild(row);
+
+          nameSet.add(cells[0].trim());
+        }
+
+        nameSet.forEach(name => {
+          const option = document.createElement("option");
+          option.value = name;
+          document.getElementById("nameList").appendChild(option);
+        });
+      });
+
+    function downloadCSV() {
+      const link = document.createElement("a");
+      link.href = FILE_NAME;
+      link.download = FILE_NAME;
+      link.click();
+    }
+
+    function logout() {
+      sessionStorage.removeItem("loggedIn");
+      window.location.href = "login.html";
+    }
+
+    function searchColumnValue() {
+      const name = document.getElementById("searchName").value.trim();
+      const column = document.getElementById("columnName").value.trim();
+      const headers = Array.from(document.querySelectorAll("#csvTable thead th"))
+                          .map(th => th.textContent.trim());
+      const colIndex = headers.indexOf(column);
+      if (colIndex === -1) return showPopup("⚠ العمود غير موجود.");
+
+      const rows = Array.from(document.querySelectorAll("#csvTable tbody tr"));
+      for (const row of rows) {
+        const cells = row.querySelectorAll("td");
+        if (cells[0].textContent.trim() === name) {
+          const value = cells[colIndex].textContent;
+          return showPopup(`📌 القيمة في العمود <b>${column}</b> للباحث <b>${name}</b>:<br><br><span style="color:blue">${value}</span>`);
+        }
+      }
+      showPopup("❌ لم يتم العثور على الاسم.");
+    }
+
+    function searchAndShowData() {
+      const name = document.getElementById("searchName").value.trim();
+      const rows = Array.from(document.querySelectorAll("#csvTable tbody tr"));
+      let result = "";
+
+      for (const row of rows) {
+        row.style.backgroundColor = "";
+        const cells = row.querySelectorAll("td");
+        if (cells[0].textContent.trim() === name) {
+          row.style.backgroundColor = "#ffff99";
+          let htmlResult = `<b>بيانات الباحث: ${name}</b><br><br>`;
+          document.querySelectorAll("#csvTable thead th").forEach((th, i) => {
+            const label = th.textContent.trim();
+            const value = cells[i]?.innerText.trim() || "";
+            if (cells[i]?.querySelector("a")) {
+              const linkText = cells[i].querySelector("a").textContent;
+              const href = cells[i].querySelector("a").href;
+              htmlResult += `<b>${label}:</b> <a href="${href}" target="_blank" class="link">${linkText}</a><br>`;
+            } else {
+              htmlResult += `<b>${label}:</b> ${value}<br>`;
+            }
+          });
+          sessionStorage.setItem("popupText", htmlResult);
+          return showPopup(htmlResult);
+        }
+      }
+      showPopup("❌ لم يتم العثور على الاسم.");
+    }
+
+    function showPopup(message) {
+      document.getElementById("popupMessage").innerHTML = message;
+      document.getElementById("overlay").style.display = "block";
+      document.getElementById("popup").style.display = "block";
+    }
+
+    function closePopup() {
+      document.getElementById("popup").style.display = "none";
+      document.getElementById("overlay").style.display = "none";
+    }
+
+    function downloadPopupContent() {
+      const content = sessionStorage.getItem("popupText") || "";
+      const blob = new Blob([content], {type: "text/plain"});
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "بيانات_الباحث.txt";
+      a.click();
+    }
+  </script>
+</body>
+</html>
