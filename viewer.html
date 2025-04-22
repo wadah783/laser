@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <title>إدارة الباحثين</title>
+  <style>
+    body {
+      font-family: Arial;
+      direction: rtl;
+      margin: 20px;
+    }
+
+    .menu-bar {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+
+    .menu {
+      position: relative;
+    }
+
+    .menu button {
+      padding: 10px 15px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+
+    .menu button:hover {
+      background-color: #45a049;
+    }
+
+    .dropdown {
+      display: none;
+      position: absolute;
+      background-color: #f9f9f9;
+      border: 1px solid #ccc;
+      min-width: 250px;
+      padding: 10px;
+      z-index: 1;
+      top: 100%;
+      right: 0;
+    }
+
+    .dropdown input,
+    .dropdown select,
+    .dropdown button {
+      margin-top: 5px;
+      width: 100%;
+    }
+
+    #customColumnSelect {
+      height: 120px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 30px;
+    }
+
+    th, td {
+      border: 1px solid #aaa;
+      padding: 8px;
+      text-align: center;
+    }
+
+    #overlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background-color: rgba(0, 0, 0, 0.6);
+      display: none;
+    }
+
+    #popup {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      z-index: 9999;
+      display: none;
+      width: 300px;
+      text-align: center;
+    }
+
+    #popup button {
+      margin-top: 10px;
+      padding: 5px 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="menu-bar">
+    <!-- قائمة البحث -->
+    <div class="menu">
+      <button onclick="toggleMenu('searchMenu')">🔍 البحث بالاسم</button>
+      <div id="searchMenu" class="dropdown">
+        <label>اسم الباحث:</label>
+        <input type="text" id="searchName" placeholder="ادخل الاسم">
+        <button onclick="searchAndShowData()">📄 عرض البيانات</button>
+      </div>
+    </div>
+
+    <!-- قائمة الأعمدة المختارة -->
+    <div class="menu">
+      <button onclick="toggleMenu('customColumnMenu')">📋 أعمدة مختارة</button>
+      <div id="customColumnMenu" class="dropdown">
+        <label>اسم الباحث:</label>
+        <input type="text" id="customSearchName" placeholder="ادخل الاسم">
+        <label style="margin-top:10px;">اختر الأعمدة:</label>
+        <select id="customColumnSelect" multiple></select>
+        <button onclick="searchSelectedColumns()">✅ عرض البيانات</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- جدول البيانات -->
+  <table id="csvTable">
+    <thead>
+      <tr>
+        <th>الاسم</th>
+        <th>الشهادة</th>
+        <th>المؤتمر</th>
+        <th>المنصب</th>
+        <th>الجامعة</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>أحمد علي</td><td>دكتوراه</td><td>مؤتمر علمي</td><td>أستاذ</td><td>جامعة بغداد</td>
+      </tr>
+      <tr>
+        <td>سارة حسن</td><td>ماجستير</td><td>ندوة طبية</td><td>محاضر</td><td>جامعة الموصل</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- نافذة منبثقة -->
+  <div id="overlay"></div>
+  <div id="popup">
+    <p id="popupMessage"></p>
+    <button onclick="closePopup()">إغلاق</button>
+    <button onclick="downloadPopupContent()">تحميل</button>
+  </div>
+
+  <script>
+    function toggleMenu(id) {
+      document.querySelectorAll(".dropdown").forEach(menu => {
+        if (menu.id !== id) menu.style.display = "none";
+      });
+      const menu = document.getElementById(id);
+      menu.style.display = menu.style.display === "block" ? "none" : "block";
+    }
+
+    function searchAndShowData() {
+      const name = document.getElementById("searchName").value.trim();
+      const rows = document.querySelectorAll("#csvTable tbody tr");
+      let result = "", html = "";
+
+      for (const row of rows) {
+        const cells = row.querySelectorAll("td");
+        if (cells[0].textContent.trim() === name) {
+          result = `بيانات الباحث: ${name}\n\n`;
+          html = `<b>بيانات الباحث: ${name}</b><br><br>`;
+          document.querySelectorAll("#csvTable thead th").forEach((th, i) => {
+            const label = th.textContent;
+            const value = cells[i]?.textContent || "";
+            result += `${label}: ${value}\n`;
+            html += `<b>${label}:</b> ${value}<br>`;
+          });
+          sessionStorage.setItem("popupText", result);
+          showPopup(html);
+          return;
+        }
+      }
+      showPopup("❌ لم يتم العثور على الاسم.");
+    }
+
+    function searchSelectedColumns() {
+      const name = document.getElementById("customSearchName").value.trim();
+      const selectedOptions = [...document.getElementById("customColumnSelect").selectedOptions];
+      const selectedColumns = selectedOptions.map(o => o.value);
+
+      const headers = [...document.querySelectorAll("#csvTable thead th")].map(th => th.textContent);
+      const rows = document.querySelectorAll("#csvTable tbody tr");
+      const row = [...rows].find(r => r.querySelector("td")?.textContent.trim() === name);
+
+      if (!row) {
+        showPopup("❌ لم يتم العثور على الاسم.");
+        return;
+      }
+
+      const cells = row.querySelectorAll("td");
+      let result = `بيانات الباحث: ${name}\n\n`;
+      let html = `<b>بيانات الباحث: ${name}</b><br><br>`;
+
+      selectedColumns.forEach(col => {
+        const idx = headers.indexOf(col);
+        if (idx !== -1) {
+          const value = cells[idx]?.textContent || "";
+          result += `${col}: ${value}\n`;
+          html += `<b>${col}:</b> ${value}<br>`;
+        }
+      });
+
+      sessionStorage.setItem("popupText", result);
+      showPopup(html);
+    }
+
+    function showPopup(message) {
+      document.getElementById("popupMessage").innerHTML = message;
+      document.getElementById("overlay").style.display = "block";
+      document.getElementById("popup").style.display = "block";
+    }
+
+    function closePopup() {
+      document.getElementById("overlay").style.display = "none";
+      document.getElementById("popup").style.display = "none";
+    }
+
+    function downloadPopupContent() {
+      const name = document.getElementById("customSearchName").value.trim() || "بيانات";
+      const content = sessionStorage.getItem("popupText");
+      const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `${name}.txt`;
+      link.click();
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+      const select = document.getElementById("customColumnSelect");
+      const headers = document.querySelectorAll("#csvTable thead th");
+      headers.forEach(th => {
+        const opt = document.createElement("option");
+        opt.value = th.textContent;
+        opt.textContent = th.textContent;
+        select.appendChild(opt);
+      });
+    });
+  </script>
+</body>
+</html>
