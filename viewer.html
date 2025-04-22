@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8" />
+  <title>عرض بيانات الباحثين</title>
+  <style>
+    body { font-family: Arial; direction: rtl; }
+    .menu { position: relative; display: inline-block; margin: 10px; }
+    .dropdown { display: none; position: absolute; background-color: #f9f9f9; border: 1px solid #ccc; padding: 10px; z-index: 1; }
+    #overlay, #popup { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; }
+    #overlay { background: rgba(0,0,0,0.5); }
+    #popup { background: #fff; padding: 20px; margin: auto; top: 20%; left: 20%; right: 20%; border: 1px solid #000; z-index: 2; position: absolute; }
+    #csvTable { width: 100%; margin-top: 20px; border-collapse: collapse; }
+    #csvTable th, #csvTable td { border: 1px solid #ccc; padding: 5px; }
+    .link { color: blue; text-decoration: underline; }
+    .suggestions, .columns-list { max-height: 150px; overflow-y: auto; background: #fff; border: 1px solid #ccc; padding: 5px; }
+    .suggestion-item { cursor: pointer; padding: 3px; }
+    .suggestion-item:hover { background: #eee; }
+  </style>
+</head>
+<body>
+
+<div class="menu">
+  <button onclick="toggleMenu('fileMenu')">📁 ملف</button>
+  <div id="fileMenu" class="dropdown">
+    <button onclick="downloadPopupContent()">💾 حفظ البيانات</button>
+  </div>
+</div>
+
+<div class="menu">
+  <button onclick="toggleMenu('searchMenu')">🔍 بحث</button>
+  <div id="searchMenu" class="dropdown">
+    <input type="text" id="searchName" placeholder="ادخل الاسم" oninput="showSuggestions()" />
+    <div id="suggestions" class="suggestions"></div>
+    <br><br>
+    <div class="columns-list">
+      <label><input type="checkbox" id="selectAll" onclick="toggleSelectAll()"> اختيار الكل</label><br>
+      <div id="columnCheckboxes"></div>
+    </div>
+    <br>
+    <button onclick="searchAndShowSelected()">عرض المختار</button>
+  </div>
+</div>
+
+<table id="csvTable">
+  <thead>
+    <tr>
+      <th>الاسم</th>
+      <th>الشهادة</th>
+      <th>المنصب</th>
+      <th>الاشراف</th>
+      <th>البحوث</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>أحمد</td><td>دكتوراه</td><td>أستاذ</td><td>3</td><td><a href="#">رابط</a></td></tr>
+    <tr><td>فاطمة</td><td>ماجستير</td><td>باحث</td><td>2</td><td><a href="#">رابط</a></td></tr>
+    <tr><td>سارة</td><td>دكتوراه</td><td>أستاذ مساعد</td><td>4</td><td><a href="#">رابط</a></td></tr>
+  </tbody>
+</table>
+
+<div id="overlay"></div>
+<div id="popup">
+  <div id="popupMessage"></div>
+  <button onclick="closePopup()">إغلاق</button>
+</div>
+
+<script>
+  const allNames = [...new Set([...document.querySelectorAll("#csvTable tbody tr td:first-child")].map(td => td.textContent.trim()))];
+
+  function toggleMenu(id) {
+    document.querySelectorAll(".dropdown").forEach(menu => {
+      if (menu.id !== id) menu.style.display = "none";
+    });
+    const menu = document.getElementById(id);
+    menu.style.display = (menu.style.display === "block") ? "none" : "block";
+  }
+
+  document.addEventListener("click", function (e) {
+    if (!e.target.closest(".menu")) {
+      document.querySelectorAll(".dropdown").forEach(menu => menu.style.display = "none");
+    }
+  });
+
+  function showSuggestions() {
+    const input = document.getElementById("searchName").value.toLowerCase();
+    const suggestionBox = document.getElementById("suggestions");
+    suggestionBox.innerHTML = "";
+    if (!input) return;
+    allNames.filter(name => name.toLowerCase().includes(input)).forEach(name => {
+      const div = document.createElement("div");
+      div.className = "suggestion-item";
+      div.textContent = name;
+      div.onclick = () => {
+        document.getElementById("searchName").value = name;
+        suggestionBox.innerHTML = "";
+      };
+      suggestionBox.appendChild(div);
+    });
+  }
+
+  function toggleSelectAll() {
+    const isChecked = document.getElementById("selectAll").checked;
+    document.querySelectorAll("#columnCheckboxes input").forEach(chk => chk.checked = isChecked);
+  }
+
+  function fillColumnCheckboxes() {
+    const headers = document.querySelectorAll("#csvTable thead th");
+    const box = document.getElementById("columnCheckboxes");
+    box.innerHTML = "";
+    headers.forEach((th, i) => {
+      if (i === 0) return; // تخطي الاسم
+      const label = th.textContent.trim();
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.value = i;
+      checkbox.checked = true;
+      box.appendChild(checkbox);
+      box.appendChild(document.createTextNode(" " + label));
+      box.appendChild(document.createElement("br"));
+    });
+  }
+
+  fillColumnCheckboxes();
+
+  function searchAndShowSelected() {
+    const name = document.getElementById("searchName").value.trim();
+    const rows = [...document.querySelectorAll("#csvTable tbody tr")];
+    const selectedCols = [...document.querySelectorAll("#columnCheckboxes input")]
+      .filter(c => c.checked)
+      .map(c => parseInt(c.value));
+    let result = "", htmlResult = "";
+
+    for (const row of rows) {
+      row.style.backgroundColor = "";
+      const cells = row.querySelectorAll("td");
+      if (cells[0].textContent.trim() === name) {
+        row.style.backgroundColor = "#ffff99";
+        result = `بيانات الباحث: ${name}\n\n`;
+        htmlResult = `<b>بيانات الباحث: ${name}</b><br><br>`;
+        const headers = document.querySelectorAll("#csvTable thead th");
+        selectedCols.forEach(i => {
+          const label = headers[i].textContent.trim();
+          const value = cells[i]?.innerText.trim() || "";
+          result += `${label}: ${value}\n`;
+          if (cells[i]?.querySelector("a")) {
+            const a = cells[i].querySelector("a");
+            htmlResult += `<b>${label}:</b> <a href="${a.href}" target="_blank" class="link">${a.textContent}</a><br>`;
+          } else {
+            htmlResult += `<b>${label}:</b> ${value}<br>`;
+          }
+        });
+        sessionStorage.setItem("popupText", result);
+        showPopup(htmlResult);
+        return;
+      }
+    }
+    showPopup("❌ لم يتم العثور على الاسم.");
+  }
+
+  function showPopup(message) {
+    document.getElementById("popupMessage").innerHTML = message;
+    document.getElementById("overlay").style.display = "block";
+    document.getElementById("popup").style.display = "block";
+  }
+
+  function closePopup() {
+    document.getElementById("popup").style.display = "none";
+    document.getElementById("overlay").style.display = "none";
+  }
+
+  function downloadPopupContent() {
+    const name = document.getElementById("searchName").value.trim() || "بيانات";
+    const popupText = sessionStorage.getItem("popupText") || "";
+    const blob = new Blob([popupText], { type: "text/plain;charset=utf-8" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `${name}.csv`;
+    link.click();
+  }
+</script>
+
+</body>
+</html>
