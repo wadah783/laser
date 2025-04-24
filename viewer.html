@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <title>إدارة بيانات الباحثين</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      direction: rtl;
+      margin: 0; padding: 0;
+    }
+    .topbar {
+      background-color: #333;
+      color: #fff;
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+    .menu {
+      position: relative;
+    }
+    .menu button {
+      background: none;
+      border: none;
+      color: black !important; /* لون النص */
+      font-size: 16px;
+      cursor: pointer;
+      padding: 6px 12px;
+    }
+    .dropdown {
+      display: none;
+      position: absolute;
+      top: 100%;
+      right: 0;
+      background: #fff;
+      color: #000;
+      min-width: 220px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+      z-index: 100;
+      text-align: right;
+      padding: 10px 0;
+    }
+    .dropdown input, .dropdown button, .dropdown label {
+      width: calc(100% - 20px);
+      margin: 5px 10px;
+      box-sizing: border-box;
+    }
+    .dropdown button {
+      background: #f0f0f0;
+      border: 1px solid #ccc;
+      padding: 6px;
+      cursor: pointer;
+      color: black !important; /* لون نص زر القائمة المنسدلة */
+    }
+    .scrollable-table {
+      margin: 20px;
+      max-height: 500px;
+      overflow: auto;
+      border: 1px solid #ccc;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      min-width: 1200px;
+    }
+    th, td {
+      border: 1px solid #999;
+      padding: 8px;
+      text-align: right;
+      white-space: nowrap;
+    }
+    th {
+      background-color: #f2f2f2;
+    }
+    .overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.5);
+      z-index: 200;
+    }
+    .popup {
+      display: none;
+      position: fixed;
+      top: 40%; left: 50%;
+      transform: translate(-50%, -40%);
+      background: #fff;
+      padding: 20px;
+      border: 2px solid #333;
+      border-radius: 6px;
+      max-width: 90%;
+      max-height: 70%;
+      overflow-y: auto;
+      z-index: 300;
+      text-align: right;
+    }
+    .popup button {
+      margin-top: 10px;
+    }
+    .link {
+      color: blue;
+      text-decoration: underline;
+    }
+    
+    /* تنسيق قائمة الاقتراحات */
+    .suggestion-box {
+      position: absolute;
+      right: 0;
+      top: 36px;
+      background: #fff;
+      border: 1px solid #aaa;
+      max-height: 150px;
+      overflow-y: auto;
+      display: none;
+      z-index: 150;
+      width: calc(100% - 2px);
+    }
+    .suggestion-box div {
+      padding: 5px;
+      cursor: pointer;
+    }
+    .suggestion-box div:hover {
+      background: #eee;
+    }
+
+    /* تنسيق حقل البحث للإدخال */
+    #columnNames {
+      padding: 8px;
+      width: 300px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+
+    /* تنسيق الزر */
+    .menu button {
+      padding: 8px 16px;
+      background-color: #007BFF;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .menu button:hover {
+      background-color: #0056b3;
+    }
+
+
+
+    /* اقتراح الأسماء والأعمدة */
+    .suggestion-box {
+      position: absolute;
+      right: 0;
+      top: 36px;
+      background: #fff;
+      border: 1px solid #aaa;
+      max-height: 150px;
+      overflow-y: auto;
+      display: none;
+      z-index: 150;
+      width: calc(100% - 2px);
+    }
+    .suggestion-box div {
+      padding: 5px;
+      cursor: pointer;
+    }
+    .suggestion-box div:hover {
+      background: #eee;
+    }
+
+
+
+    .checkbox-list {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid #ccc;
+    padding: 5px;
+    margin-top: 5px;
+    background-color: #fff;
+  }
+  </style>
+
+
+  
+</head>
+<body>
+
+  <!-- شريط القوائم -->
+  <div class="topbar">
+    <!-- قائمة ملف -->
+    <div class="menu">
+      <button onclick="toggleMenu('fileMenu')">📁 ملف</button>
+      <div class="dropdown" id="fileMenu">
+        <button onclick="downloadCSV()">⬇️ تحميل الملف</button>
+        <button onclick="downloadPopupContent()">💾 حفظ البيانات</button>
+        <button onclick="logout()">🚪 خروج</button>
+      </div>
+    </div>
+
+    <!-- قائمة بحث -->
+    <div class="menu">
+      <button onclick="toggleMenu('searchMenu')">🔍 بحث</button>
+      <div class="dropdown" id="searchMenu">
+        <div style="position: relative;">
+          <input type="text" id="searchName" placeholder="اسم الباحث"
+            oninput="suggestSearchNames(this.value)" onfocus="suggestSearchNames(this.value)">
+          <div class="suggestion-box" id="searchNameBox"></div>
+        </div>
+        <div style="position: relative; margin-top: 5px;">
+          <input type="text" id="searchColumn" placeholder="اسم العمود"
+            oninput="suggestSearchColumns(this.value)" onfocus="suggestSearchColumns(this.value)">
+          <div class="suggestion-box" id="searchColBox"></div>
+        </div>
+        <button onclick="searchColumnValue()">🔎 قيمة في عمود</button>
+        <button onclick="searchAndShowData()">📌 عرض بيانات</button>
+        <button onclick="downloadPopupContent()">💾 حفظ البيانات</button>
+      </div>
+    </div>
+
+    <!-- قائمة اختيار الأعمدة -->
+    <div class="menu">
+      <button onclick="toggleMenu('filterMenu')">📋 فلترة</button>
+      <div class="dropdown" id="filterMenu">
+        <!-- اقتراح الاسم -->
+        <div style="position: relative;">
+          <input type="text" id="nameAuto" placeholder="ابحث عن اسم..."
+            oninput="suggestNames(this.value)" onfocus="suggestNames(this.value)">
+          <div class="suggestion-box" id="suggestBox"></div>
+        </div>
+        <div id="columnCheckboxes" style="max-height:200px; overflow:auto; margin-top:5px;"></div>
+        <button onclick="showSelectedData()">عرض البيانات المحددة</button>
+        <button onclick="downloadSelectedData()">💾 حفظ النتائج</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="menu">
+    <label>البحث عن أعمدة مميزة:</label><br>
+    <input type="text" id="searchField" placeholder="اكتب جزء من اسم العمود" oninput="updateSuggestions()">
+    <div id="checkboxSuggestions" class="checkbox-list"></div>
+    <button onclick="sortBySelectedCheckboxes()">ترتيب حسب الحقول المختارة</button>
+    <button onclick="showAllColumns()">عرض كل الأعمدة</button>
+  </div>
+  
+
+
+
+  <div class="menu">
+    <input type="text" id="columnNames" placeholder="أدخل أسماء الأعمدة" oninput="suggestColumns(this.value)">
+    <div id="columnBox" class="suggestion-box"></div>
+    <button onclick="sortResearchersByColumns()">ترتيب الباحثين حسب الأعمدة</button>
+    <!-- إضافة زر إظهار جميع الأعمدة -->
+    <button onclick="showAllColumns()">إظهار جميع الأعمدة</button>
+  </div>
+  
+  
+
+
+  <!-- إشعار تسجيل الدخول -->
+  <div id="notice" style="margin:20px; color:green; font-size:18px;">
+    ✅ تم تسجيل الدخول بنجاح. يمكنك الآن عرض الملف.
+  </div>
+
+  <!-- جدول البيانات -->
+  <div class="scrollable-table">
+    <table id="csvTable">
+      <thead></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <!-- نافذة منبثقة -->
+  <div class="overlay" id="overlay"></div>
+  <div class="popup" id="popup">
+    <div id="popupMessage"></div>
+    <button onclick="closePopup()">❌ إغلاق</button>
+  </div>
+
+  <script>
+    const FILE_NAME = 'researchers.csv';
+
+    if (sessionStorage.getItem("loggedIn") !== "true") {
+      alert("يرجى تسجيل الدخول أولاً.");
+      window.location.href = "login.html";
+    }
+
+    fetch(FILE_NAME)
+      .then(res => res.text())
+      .then(data => {
+        const lines = data.trim().split("\n");
+        const headers = lines[0].split(",").map(h => h.trim());
+        const thead = document.querySelector("#csvTable thead");
+        const tbody = document.querySelector("#csvTable tbody");
+
+        // بناء رأس الجدول
+        const trh = document.createElement("tr");
+        headers.forEach(h => {
+          const th = document.createElement("th");
+          th.textContent = h;
+          trh.appendChild(th);
+        });
+        thead.appendChild(trh);
+
+        // بناء جسم الجدول
+        lines.slice(1).forEach(line => {
+          const tr = document.createElement("tr");
+          line.split(",").forEach(cell => {
+            const td = document.createElement("td");
+            const txt = cell.trim();
+            if (txt.match(/(https?:\/\/[^\s]+|\b[\w.-]+\.(com|org|net|edu|gov)\b)/i)) {
+              const url = /^https?:\/\//i.test(txt) ? txt : 'https://' + txt;
+              td.innerHTML = `<a href="${url}" target="_blank" class="link">${txt}</a>`;
+            } else {
+              td.textContent = txt;
+            }
+            tr.appendChild(td);
+          });
+          tbody.appendChild(tr);
+        });
+
+        // حفظ الأسماء والأعمدة عالمياً للاقتراح
+        window.allNames = [...tbody.querySelectorAll("tr")].map(r => r.cells[0].textContent.trim());
+        window.allHeaders = headers;
+
+        // بناء checkboxes أعمدة الفلترة
+        createColumnCheckboxes(headers);
+      })
+      .catch(err => {
+        alert("تعذّر تحميل الملف.");
+        console.error(err);
+      });
+
+
+
+
+
+
+      function suggestColumns(query) {
+  const box = document.getElementById("columnBox");
+  box.innerHTML = '';
+  if (!query) return box.style.display = 'none';
+
+  window.allHeaders.filter(h => h.includes(query)).forEach(h => {
+    const div = document.createElement("div");
+    div.textContent = h;
+    div.onclick = () => {
+      document.getElementById("columnNames").value = h;
+      box.style.display = 'none';
+    };
+    box.appendChild(div);
+  });
+  box.style.display = box.children.length ? 'block' : 'none';
+}
+
+
+
+
+function sortResearchersByColumns() {
+  const columnNames = document.getElementById("columnNames").value.trim().split(",");
+  const rows = [...document.querySelectorAll("#csvTable tbody tr")];
+  const headers = window.allHeaders;
+
+  // البحث عن الأعمدة المدخلة واستخراج إندكس العمود السابق لها
+  const columnIndexes = columnNames.map(col => {
+    const index = headers.indexOf(col.trim());
+    return index > 0 ? index - 1 : -1; // نأخذ العمود السابق فقط إذا كان هناك عمود سابق
+  }).filter(index => index !== -1);
+
+  if (columnIndexes.length === 0) {
+    alert("لم يتم العثور على أعمدة مطابقة.");
+    return;
+  }
+
+  // إظهار فقط الأعمدة المطلوبة + عمود الاسم
+  const allTh = document.querySelectorAll("#csvTable th");
+  allTh.forEach((header, index) => {
+    const shouldShow = index === 0 || columnIndexes.includes(index - 1);
+    header.style.display = shouldShow ? '' : 'none';
+  });
+
+  const allRows = document.querySelectorAll("#csvTable tbody tr");
+  allRows.forEach(row => {
+    [...row.cells].forEach((cell, index) => {
+      const shouldShow = index === 0 || columnIndexes.includes(index - 1);
+      cell.style.display = shouldShow ? '' : 'none';
+    });
+  });
+
+  // ترتيب الباحثين بناءً على الأعمدة المطلوبة
+  rows.sort((rowA, rowB) => {
+    let totalA = 0, totalB = 0;
+    columnIndexes.forEach(index => {
+      let valueA = parseValue(rowA.cells[index + 1].innerText.trim());
+      let valueB = parseValue(rowB.cells[index + 1].innerText.trim());
+      totalA += valueA;
+      totalB += valueB;
+    });
+    return totalB - totalA;
+  });
+
+  const tbody = document.querySelector("#csvTable tbody");
+  rows.forEach(row => tbody.appendChild(row));
+}
+
+function parseValue(value) {
+  if (value.includes('(') && value.includes(')')) {
+    const number = parseFloat(value.split('(')[0].trim());
+    return isNaN(number) ? 0 : number;
+  }
+  return parseFloat(value) || 0;
+}
+
+function showAllColumns() {
+  const allHeaders = document.querySelectorAll("#csvTable th");
+  const allCells = document.querySelectorAll("#csvTable td");
+  allHeaders.forEach(th => th.style.display = '');
+  allCells.forEach(td => td.style.display = '');
+  document.getElementById("columnNames").value = '';
+}
+
+
+
+
+
+function updateSuggestions() {
+  const input = document.getElementById("searchField").value.toLowerCase();
+  const box = document.getElementById("checkboxSuggestions");
+  box.innerHTML = "";
+
+  window.allHeaders.forEach((header, index) => {
+    if (header.toLowerCase().includes(input)) {
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.value = index;
+      checkbox.id = "col_" + index;
+
+      const label = document.createElement("label");
+      label.htmlFor = "col_" + index;
+      label.innerText = header;
+      label.style.display = "block";
+
+      label.prepend(checkbox);
+      box.appendChild(label);
+    }
+  });
+}
+
+function sortBySelectedCheckboxes() {
+  const selected = [...document.querySelectorAll('#checkboxSuggestions input:checked')]
+    .map(cb => parseInt(cb.value)); // هذه الإندكسات
+
+  if (selected.length === 0) {
+    alert("يرجى اختيار حقول من القائمة.");
+    return;
+  }
+
+  const rows = [...document.querySelectorAll("#csvTable tbody tr")];
+  const allTh = document.querySelectorAll("#csvTable thead th");
+  const allRows = document.querySelectorAll("#csvTable tbody tr");
+
+  // إخفاء/إظهار الأعمدة حسب الإندكس
+  allTh.forEach((header, index) => {
+    if (index === 0 || selected.includes(index - 1)) {
+      header.style.display = '';
+      header.style.backgroundColor = selected.includes(index - 1) ? "#ffff99" : "#f0f0f0";
+    } else {
+      header.style.display = 'none';
+      header.style.backgroundColor = '';
+    }
+  });
+
+  allRows.forEach(row => {
+    [...row.cells].forEach((cell, index) => {
+      if (index === 0 || selected.includes(index - 1)) {
+        cell.style.display = '';
+        cell.style.backgroundColor = selected.includes(index - 1) ? "#ffffcc" : "#f0f0f0";
+      } else {
+        cell.style.display = 'none';
+        cell.style.backgroundColor = '';
+      }
+    });
+  });
+
+  // ترتيب حسب المجموع
+  rows.sort((rowA, rowB) => {
+    let totalA = 0, totalB = 0;
+    selected.forEach(index => {
+      const valA = parseValue(rowA.cells[index + 1].innerText.trim());
+      const valB = parseValue(rowB.cells[index + 1].innerText.trim());
+      totalA += valA;
+      totalB += valB;
+    });
+    return totalB - totalA;
+  });
+
+  const tbody = document.querySelector("#csvTable tbody");
+  rows.forEach(row => tbody.appendChild(row));
+}
+
+
+
+
+    // فتح/إغلاق القوائم
+    function toggleMenu(id) {
+      document.querySelectorAll(".dropdown").forEach(d => {
+        if (d.id !== id) d.style.display = 'none';
+      });
+      const m = document.getElementById(id);
+      m.style.display = m.style.display === 'block' ? 'none' : 'block';
+    }
+    document.addEventListener("click", e => {
+      if (!e.target.closest(".menu")) {
+        document.querySelectorAll(".dropdown").forEach(d => d.style.display = 'none');
+      }
+    });
+
+    function logout() {
+      sessionStorage.removeItem("loggedIn");
+      window.location.href = 'login.html';
+    }
+    function downloadCSV() {
+      const a = document.createElement("a");
+      a.href = FILE_NAME;
+      a.download = FILE_NAME;
+      a.click();
+    }
+
+    // النافذة المنبثقة
+    function showPopup(msg) {
+      document.getElementById("popupMessage").innerHTML = msg;
+      document.getElementById("overlay").style.display = 'block';
+      document.getElementById("popup").style.display = 'block';
+    }
+    function closePopup() {
+      document.getElementById("overlay").style.display = 'none';
+      document.getElementById("popup").style.display = 'none';
+    }
+    function downloadPopupContent() {
+      const name = document.getElementById("searchName").value.trim()
+        || document.getElementById("nameAuto").value.trim() || 'data';
+      const text = sessionStorage.getItem("popupText") || '';
+      const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `${name}.txt`;
+      a.click();
+    }
+
+    // دوال قائمة البحث مع الاقتراح
+    function searchColumnValue() {
+      const name = document.getElementById("searchName").value.trim();
+      const column = document.getElementById("searchColumn").value.trim();
+      const headers = window.allHeaders;
+      const idx = headers.indexOf(column);
+      if (idx === -1) return showPopup("⚠ العمود غير موجود.");
+      const rows = [...document.querySelectorAll("#csvTable tbody tr")];
+      for (let tr of rows) {
+        if (tr.cells[0].textContent.trim() === name) {
+          const v = tr.cells[idx].innerText.trim();
+          return showPopup(`📌 القيمة في عمود "<b>${column}</b>" للباحث "<b>${name}</b>":<br><br><span style="color:blue">${v}</span>`);
+        }
+      }
+      showPopup("❌ لم يتم العثور على الاسم.");
+    }
+
+    function searchAndShowData() {
+      const name = document.getElementById("searchName").value.trim();
+      const rows = [...document.querySelectorAll("#csvTable tbody tr")];
+      rows.forEach(tr => tr.style.background = '');
+      for (let tr of rows) {
+        if (tr.cells[0].textContent.trim() === name) {
+          tr.style.background = '#ffff99';
+          let text = `بيانات الباحث: ${name}\n\n`;
+          let html = `<b>بيانات الباحث: ${name}</b><br><br>`;
+          window.allHeaders.forEach((h,i) => {
+            const v = tr.cells[i].innerText.trim();
+            text += `${h}: ${v}\n`;
+            html += `<b>${h}:</b> ${v}<br>`;
+          });
+          sessionStorage.setItem("popupText", text);
+          return showPopup(html);
+        }
+      }
+      showPopup("❌ لم يتم العثور على الاسم.");
+    }
+
+    function suggestSearchNames(q) {
+      const box = document.getElementById("searchNameBox");
+      box.innerHTML = '';
+      if (!q) return box.style.display = 'none';
+      window.allNames.filter(n => n.includes(q)).forEach(n => {
+        const d = document.createElement("div");
+        d.textContent = n;
+        d.onclick = () => {
+          document.getElementById("searchName").value = n;
+          box.style.display = 'none';
+        };
+        box.appendChild(d);
+      });
+      box.style.display = box.children.length ? 'block' : 'none';
+    }
+
+    function suggestSearchColumns(q) {
+      const box = document.getElementById("searchColBox");
+      box.innerHTML = '';
+      if (!q) return box.style.display = 'none';
+      window.allHeaders.filter(h => h.includes(q)).forEach(h => {
+        const d = document.createElement("div");
+        d.textContent = h;
+        d.onclick = () => {
+          document.getElementById("searchColumn").value = h;
+          box.style.display = 'none';
+        };
+        box.appendChild(d);
+      });
+      box.style.display = box.children.length ? 'block' : 'none';
+    }
+
+    // دوال قائمة الفلترة (كما هي)
+    function createColumnCheckboxes(headers) {
+      const ctr = document.getElementById("columnCheckboxes");
+      ctr.innerHTML = `<label><input type="checkbox" id="selectAllCols" onclick="toggleAllCols(this)"> تحديد الكل</label><br>`;
+      headers.forEach((h,i) => {
+        ctr.innerHTML += `<label><input type="checkbox" class="col-check" value="${i}"> ${h}</label><br>`;
+      });
+    }
+    function toggleAllCols(chk) {
+      document.querySelectorAll(".col-check").forEach(c => c.checked = chk.checked);
+    }
+    function suggestNames(q) {
+      const box = document.getElementById("suggestBox");
+      box.innerHTML = '';
+      if (!q) return box.style.display = 'none';
+      window.allNames.filter(n => n.includes(q)).forEach(n => {
+        const d = document.createElement("div");
+        d.textContent = n;
+        d.onclick = () => {
+          document.getElementById("nameAuto").value = n;
+          box.style.display = 'none';
+        };
+        box.appendChild(d);
+      });
+      box.style.display = box.children.length ? 'block' : 'none';
+    }
+    function showSelectedData() {
+      const name = document.getElementById("nameAuto").value.trim();
+      const cols = [...document.querySelectorAll(".col-check")]
+                     .filter(c => c.checked).map(c => parseInt(c.value));
+      const rows = [...document.querySelectorAll("#csvTable tbody tr")];
+      rows.forEach(tr => tr.style.background = '');
+      for (let tr of rows) {
+        if (tr.cells[0].textContent.trim() === name) {
+          tr.style.background = '#ccffcc';
+          let text = `بيانات الباحث: ${name}\n\n`;
+          let html = `<b>بيانات الباحث: ${name}</b><br><br>`;
+          cols.forEach(i => {
+            const h = window.allHeaders[i], v = tr.cells[i].innerText.trim();
+            text += `${h}: ${v}\n`;
+            html += `<b>${h}:</b> ${v}<br>`;
+          });
+          sessionStorage.setItem("popupText", text);
+          return showPopup(html);
+        }
+      }
+      showPopup("❌ لم يتم العثور على الاسم.");
+    }
+    function downloadSelectedData() {
+      downloadPopupContent();
+    }
+  </script>
+</body>
+</html>
