@@ -185,44 +185,9 @@
     padding: 5px;
     margin-top: 5px;
     background-color: #fff;
-
-
-
-    .menu {
-  position: relative;
-  display: inline-block;
-  margin: 10px;
-}
-.dropdown {
-  display: none;
-  position: absolute;
-  background-color: #f9f9f9;
-  min-width: 300px;
-  max-height: 400px;
-  overflow-y: auto;
-  box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
-  padding: 15px;
-  z-index: 1;
-  border-radius: 10px;
-}
-.dropdown h4 {
-  margin-top: 10px;
-  margin-bottom: 5px;
-  font-size: 16px;
-  color: #333;
-}
-.dropdown hr {
-  margin: 10px 0;
-}
-button {
-  margin-top: 5px;
-  margin-bottom: 5px;
-}
   }
   </style>
 
-
-  
 
   
 </head>
@@ -260,29 +225,6 @@ button {
       <button onclick="downloadPopupContent()">💾 حفظ البيانات</button>
     </div>
   </div>
-
-
-  <!-- القائمة الموحدة لاختيار الأعمدة والأسماء مع الأزرار -->
-  <div class="menu">
-    <button onclick="toggleMenu('selectionMenu')">📝 إعدادات العرض</button>
-    <div class="dropdown" id="selectionMenu">
-      <h4>اختيار الأعمدة:</h4>
-      <div id="columnCheckboxes"></div>
-      <hr>
-      <h4>اختيار الأسماء:</h4>
-      <div id="nameCheckboxes"></div>
-      <hr>
-      <button onclick="displaySelectedResults()">📋 عرض النتائج</button>
-      <button onclick="downloadSelectedResults()">💾 تحميل النتائج</button>
-    </div>
-  </div>
-
-<!-- مكان عرض النتائج -->
-<div id="resultsTable" style="margin-top:20px;"></div>
-
-
-
-
 
   <!-- قائمة اختيار الأعمدة -->
   <div class="menu">
@@ -872,118 +814,6 @@ function downloadKeywordResults() {
 
 
 
-
-  
-
-   
-
-
-
-
-let selectedColumns = [];
-let selectedNames = [];
-
-// توليد القوائم بناءً على الجدول الحالي
-function generateCheckboxes() {
-  const headers = window.allHeaders; // قائمة العناوين موجودة عندك
-  const rows = [...document.querySelectorAll("#csvTable tbody tr")];
-
-  // الأعمدة
-  const columnBox = document.getElementById("columnCheckboxes");
-  columnBox.innerHTML = '<label><input type="checkbox" id="selectAllColumns" onclick="toggleAllColumns()"> اختيار الكل</label><br>';
-  headers.forEach((header, index) => {
-    columnBox.innerHTML += `<label><input type="checkbox" value="${index}" class="columnCheckbox"> ${header}</label><br>`;
-  });
-
-  // الأسماء
-  const nameBox = document.getElementById("nameCheckboxes");
-  nameBox.innerHTML = '<label><input type="checkbox" id="selectAllNames" onclick="toggleAllNames()"> اختيار الكل</label><br>';
-  rows.forEach(row => {
-    const name = row.cells[0].innerText.trim(); // أول عمود
-    nameBox.innerHTML += `<label><input type="checkbox" value="${name}" class="nameCheckbox"> ${name}</label><br>`;
-  });
-}
-
-// تفعيل/تعطيل الكل للأعمدة
-function toggleAllColumns() {
-  const status = document.getElementById("selectAllColumns").checked;
-  document.querySelectorAll(".columnCheckbox").forEach(cb => cb.checked = status);
-}
-
-// تفعيل/تعطيل الكل للأسماء
-function toggleAllNames() {
-  const status = document.getElementById("selectAllNames").checked;
-  document.querySelectorAll(".nameCheckbox").forEach(cb => cb.checked = status);
-}
-
-// عرض النتائج
-function displaySelectedResults() {
-  selectedColumns = [...document.querySelectorAll(".columnCheckbox:checked")].map(cb => parseInt(cb.value));
-  selectedNames = [...document.querySelectorAll(".nameCheckbox:checked")].map(cb => cb.value);
-
-  if (selectedColumns.length === 0 || selectedNames.length === 0) {
-    alert("يرجى اختيار أعمدة وأسماء لعرض النتائج.");
-    return;
-  }
-
-  const headers = window.allHeaders;
-  const rows = [...document.querySelectorAll("#csvTable tbody tr")];
-
-  let html = '<table border="1" style="border-collapse: collapse; width: 100%; text-align: center;">';
-  html += "<thead><tr><th>اسم الباحث</th>";
-  selectedColumns.forEach(index => {
-    html += `<th>${headers[index]}</th>`;
-  });
-  html += "</tr></thead><tbody>";
-
-  rows.forEach(row => {
-    const name = row.cells[0].innerText.trim();
-    if (selectedNames.includes(name)) {
-      html += `<tr><td>${name}</td>`;
-      selectedColumns.forEach(index => {
-        const cell = row.cells[index];
-        html += `<td>${cell ? cell.innerText.trim() : ''}</td>`;
-      });
-      html += "</tr>";
-    }
-  });
-
-  html += "</tbody></table>";
-
-  document.getElementById("resultsTable").innerHTML = html;
-}
-
-// تحميل النتائج
-function downloadSelectedResults() {
-  if (!document.getElementById("resultsTable").innerHTML.trim()) {
-    alert("لا توجد نتائج لتحميلها.");
-    return;
-  }
-
-  let csv = "\uFEFFاسم الباحث,";
-  csv += selectedColumns.map(index => `"${window.allHeaders[index]}"`).join(",") + "\n";
-
-  const tableRows = document.querySelectorAll("#resultsTable tbody tr");
-  tableRows.forEach(tr => {
-    const cells = [...tr.querySelectorAll("td")].map(td => `"${td.innerText}"`);
-    csv += cells.join(",") + "\n";
-  });
-
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const link = document.createElement("a");
-  link.href = URL.createObjectURL(blob);
-  link.download = "نتائج_مختارة.csv";
-  link.click();
-}
-
-// لاستدعاء بناء القوائم بعد تحميل الصفحة
-window.onload = generateCheckboxes;
-
-// وظيفة فتح القوائم (نفس فكرتك السابقة)
-function toggleMenu(id) {
-  const menu = document.getElementById(id);
-  menu.style.display = (menu.style.display === "block") ? "none" : "block";
-}
 
 
 
